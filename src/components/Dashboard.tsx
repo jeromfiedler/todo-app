@@ -35,7 +35,13 @@ function applyFilter(task: Task, filter: Filter): boolean {
 export default function Dashboard({ initialTasks, initialLists, user }: Props) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [lists, setLists] = useState<List[]>(initialLists)
-  const [filter, setFilter] = useState<Filter>({ type: 'all' })
+  const [filter, setFilter] = useState<Filter>(() => {
+    try {
+      const saved = localStorage.getItem('lastFilter')
+      if (saved) return JSON.parse(saved) as Filter
+    } catch {}
+    return { type: 'all' }
+  })
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -153,7 +159,11 @@ export default function Dashboard({ initialTasks, initialLists, user }: Props) {
       <aside className={`fixed md:static inset-y-0 left-0 z-30 w-64 transform transition-transform duration-200 md:transform-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <Sidebar
           filter={filter}
-          setFilter={f => { setFilter(f); setSidebarOpen(false) }}
+          setFilter={f => {
+            setFilter(f)
+            setSidebarOpen(false)
+            try { localStorage.setItem('lastFilter', JSON.stringify(f)) } catch {}
+          }}
           lists={lists}
           allTags={allTags}
           todayCount={0}
@@ -175,7 +185,10 @@ export default function Dashboard({ initialTasks, initialLists, user }: Props) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold flex-1">{filterTitle()}</h1>
+          <h1
+            className="text-lg font-semibold flex-1 md:cursor-default cursor-pointer"
+            onClick={() => setSidebarOpen(true)}
+          >{filterTitle()}</h1>
           <button
             onClick={() => { setEditingTask(null); setShowForm(true) }}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"

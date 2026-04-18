@@ -111,9 +111,9 @@ function TaskItem({ task, hideListId, onToggleComplete, onEdit, onDelete }: {
   const revealed = swipeX <= -SWIPE_THRESHOLD / 2
 
   return (
-    <li className="relative overflow-hidden rounded-xl">
-      {/* delete button revealed on swipe */}
-      <div className="absolute inset-y-0 right-0 flex items-center justify-center w-16 bg-red-500 rounded-r-xl">
+    <li className={`relative overflow-hidden rounded-xl border ${task.completed ? 'border-gray-100 dark:border-gray-800/50 opacity-60' : 'border-gray-200 dark:border-gray-800'}`}>
+      {/* delete button — hidden behind card until swiped */}
+      <div className="absolute inset-y-0 right-0 w-16 bg-red-500 flex items-center justify-center">
         <button
           onClick={() => onDelete(task.id)}
           className="w-full h-full flex items-center justify-center text-white"
@@ -124,9 +124,9 @@ function TaskItem({ task, hideListId, onToggleComplete, onEdit, onDelete }: {
         </button>
       </div>
 
-      {/* task card, slides left to reveal delete */}
+      {/* task card — covers delete button at translateX(0) */}
       <div
-        className={`relative flex items-center gap-3 bg-white dark:bg-gray-900 border rounded-xl px-4 py-3 transition-colors ${task.completed ? 'border-gray-100 dark:border-gray-800/50 opacity-60' : 'border-gray-200 dark:border-gray-800'}`}
+        className="relative flex items-center gap-3 bg-white dark:bg-gray-900 px-4 py-3"
         style={{ transform: `translateX(${swipeX}px)`, transition: dragging.current ? 'none' : 'transform 0.2s ease' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
