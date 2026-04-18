@@ -19,6 +19,9 @@ const PRIORITY_PILL = [
   { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-700 dark:text-red-300', label: 'Hoog' },
 ]
 
+// Width of the swipe-delete button in px (matches w-20 = 80px)
+const DELETE_WIDTH = 80
+
 export default function TaskList({ tasks, completedTasks, activeListId, onToggleComplete, onEdit, onDelete }: Props) {
   const [completedOpen, setCompletedOpen] = useState(false)
 
@@ -45,12 +48,9 @@ export default function TaskList({ tasks, completedTasks, activeListId, onToggle
         <div className="pt-2">
           <button
             onClick={() => setCompletedOpen(o => !o)}
-            className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium px-1 py-2 transition-colors"
+            className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 font-medium px-1 py-2"
           >
-            <svg
-              className={`w-4 h-4 transition-transform ${completedOpen ? 'rotate-90' : ''}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            >
+            <svg className={`w-4 h-4 transition-transform ${completedOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
             Afgerond ({completedTasks.length})
@@ -69,8 +69,6 @@ export default function TaskList({ tasks, completedTasks, activeListId, onToggle
   )
 }
 
-const SWIPE_THRESHOLD = 60
-
 function TaskItem({ task, hideListId, onToggleComplete, onEdit, onDelete }: {
   task: Task
   hideListId?: string
@@ -82,108 +80,112 @@ function TaskItem({ task, hideListId, onToggleComplete, onEdit, onDelete }: {
   const startX = useRef(0)
   const startY = useRef(0)
   const dragging = useRef(false)
+  const lockAxis = useRef<'h' | 'v' | null>(null)
 
   function onTouchStart(e: React.TouchEvent) {
     startX.current = e.touches[0].clientX
     startY.current = e.touches[0].clientY
     dragging.current = true
+    lockAxis.current = null
   }
 
   function onTouchMove(e: React.TouchEvent) {
     if (!dragging.current) return
     const dx = e.touches[0].clientX - startX.current
-    const dy = Math.abs(e.touches[0].clientY - startY.current)
-    // ignore vertical scrolling
-    if (dy > 10 && Math.abs(dx) < dy) { dragging.current = false; return }
-    if (dx < 0) {
-      e.preventDefault()
-      setSwipeX(Math.max(dx, -SWIPE_THRESHOLD))
-    } else if (swipeX < 0) {
-      setSwipeX(Math.min(0, swipeX + dx))
+    const dy = e.touches[0].clientY - startY.current
+
+    if (!lockAxis.current) {
+      if (Math.abs(dx) > Math.abs(dy)) lockAxis.current = 'h'
+      else { lockAxis.current = 'v'; dragging.current = false; return }
     }
+    if (lockAxis.current !== 'h') return
+
+    e.preventDefault()
+    const next = Math.min(0, Math.max(swipeX + dx - (swipeX === 0 ? 0 : dx), dx < 0 ? dx : 0))
+    // track from origin, clamped
+    const raw = e.touches[0].clientX - startX.current
+    setSwipeX(Math.max(-DELETE_WIDTH, Math.min(0, raw)))
   }
 
   function onTouchEnd() {
     dragging.current = false
-    setSwipeX(prev => prev < -SWIPE_THRESHOLD / 2 ? -SWIPE_THRESHOLD : 0)
+    lockAxis.current = null
+    setSwipeX(prev => prev < -DELETE_WIDTH / 2 ? -DELETE_WIDTH : 0)
   }
 
-  const revealed = swipeX <= -SWIPE_THRESHOLD / 2
+  function handleTap(action: () => void) {
+    if (swipeX < 0) { setSwipeX(0); return }
+    action()
+  }
+
+  const p = task.priority > 0 ? PRIORITY_PILL[task.priority] : null
 
   return (
-    <li className={`relative overflow-hidden rounded-xl border ${task.completed ? 'border-gray-100 dark:border-gray-800/50 opacity-60' : 'border-gray-200 dark:border-gray-800'}`}>
-      {/* delete button — hidden behind card until swiped */}
-      <div className="absolute inset-y-0 right-0 w-16 bg-red-500 flex items-center justify-center">
-        <button
-          onClick={() => onDelete(task.id)}
-          className="w-full h-full flex items-center justify-center text-white"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
-
-      {/* task card — covers delete button at translateX(0) */}
+    // overflow-hidden + rounded on the outer li — this IS the clipping container
+    <li className={`overflow-hidden rounded-xl border ${task.completed ? 'border-gray-100 dark:border-gray-800/50 opacity-60' : 'border-gray-200 dark:border-gray-800'}`}>
+      {/*
+        Inline flex: [content (min-w-full)] [delete button (80px)]
+        Total row width = container + 80px
+        translateX(0)   → content visible, delete hidden (clipped right)
+        translateX(-80) → content shifts left 80px, delete fully visible
+      */}
       <div
-        className="relative flex items-center gap-3 bg-white dark:bg-gray-900 px-4 py-3"
-        style={{ transform: `translateX(${swipeX}px)`, transition: dragging.current ? 'none' : 'transform 0.2s ease' }}
+        className="flex"
+        style={{ transform: `translateX(${swipeX}px)`, transition: dragging.current ? 'none' : 'transform 0.25s ease' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <button
-          onClick={() => { if (swipeX < 0) { setSwipeX(0); return } onToggleComplete(task) }}
-          className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${task.completed ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}
-        >
-          {task.completed && (
-            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
-          )}
-        </button>
+        {/* Main content — min-w-full keeps it exactly as wide as the <li> */}
+        <div className="min-w-full flex items-center gap-3 bg-white dark:bg-gray-900 px-4 py-3">
+          <button
+            onClick={() => handleTap(() => onToggleComplete(task))}
+            className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${task.completed ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-600'}`}
+          >
+            {task.completed && (
+              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
 
-        <div
-          className="flex-1 min-w-0 cursor-pointer"
-          onClick={() => { if (swipeX < 0) { setSwipeX(0); return } onEdit(task) }}
-        >
-          <div className="flex items-start gap-2 flex-wrap">
-            <span className={`text-sm font-medium leading-5 ${task.completed ? 'line-through text-gray-400' : ''}`}>
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleTap(() => onEdit(task))}>
+            <span className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>
               {task.title}
             </span>
-            {!task.completed && task.priority > 0 && (() => {
-              const p = PRIORITY_PILL[task.priority]!
-              return <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${p.bg} ${p.text} flex-shrink-0`}>{p.label}</span>
-            })()}
+            {(task.list || task.tags.length > 0) && (
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {task.list && task.list.id !== hideListId && (
+                  <span className="text-xs flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: task.list.color }} />
+                    {task.list.name}
+                  </span>
+                )}
+                {task.tags.map(tag => (
+                  <span key={tag} className="text-xs text-blue-600 dark:text-blue-400">#{tag}</span>
+                ))}
+              </div>
+            )}
           </div>
 
-          {task.description && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{task.description}</p>
-          )}
-
-          {(task.list || task.tags.length > 0) && (
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              {task.list && task.list.id !== hideListId && (
-                <span className="text-xs flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: task.list.color }} />
-                  {task.list.name}
-                </span>
-              )}
-              {task.tags.map(tag => (
-                <span key={tag} className="text-xs text-blue-600 dark:text-blue-400">#{tag}</span>
-              ))}
-            </div>
+          {/* Priority pill — right-aligned, fixed width */}
+          {p && !task.completed && (
+            <span className={`flex-shrink-0 w-16 text-center text-xs font-medium py-0.5 rounded-full ${p.bg} ${p.text}`}>
+              {p.label}
+            </span>
           )}
         </div>
 
-        {/* desktop-only delete button */}
+        {/* Delete button — inline after content, revealed by sliding */}
         <button
           onClick={() => onDelete(task.id)}
-          className="hidden md:flex opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-all flex-shrink-0"
+          style={{ width: DELETE_WIDTH, minWidth: DELETE_WIDTH }}
+          className="flex-shrink-0 bg-red-500 flex flex-col items-center justify-center gap-1 text-white"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
+          <span className="text-xs font-medium">Verwijder</span>
         </button>
       </div>
     </li>

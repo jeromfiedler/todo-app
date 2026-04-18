@@ -20,7 +20,7 @@ interface Props {
 }
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280']
-const SWIPE_THRESHOLD = 64
+const DELETE_WIDTH = 80
 
 export default function Sidebar({ filter, setFilter, lists, allTags, onSaveList, onDeleteList, user }: Props) {
   const { theme, toggle } = useTheme()
@@ -171,67 +171,80 @@ function ListItem({ list, active, onSelect, onEdit, onDelete }: {
 }) {
   const [swipeX, setSwipeX] = useState(0)
   const startX = useRef(0)
-  const startY = useRef(0)
   const dragging = useRef(false)
+  const lockAxis = useRef<'h' | 'v' | null>(null)
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const didSwipe = useRef(false)
 
   function onTouchStart(e: React.TouchEvent) {
     startX.current = e.touches[0].clientX
-    startY.current = e.touches[0].clientY
     dragging.current = true
+    lockAxis.current = null
     didSwipe.current = false
     holdTimer.current = setTimeout(() => {
-      if (!didSwipe.current) onEdit()
+      if (!didSwipe.current) { setSwipeX(0); onEdit() }
     }, 500)
   }
 
   function onTouchMove(e: React.TouchEvent) {
     if (!dragging.current) return
     const dx = e.touches[0].clientX - startX.current
-    const dy = Math.abs(e.touches[0].clientY - startY.current)
-    if (dy > 10 && Math.abs(dx) < dy) { dragging.current = false; return }
-    if (Math.abs(dx) > 8 && holdTimer.current) {
-      clearTimeout(holdTimer.current)
-      holdTimer.current = null
+    const dy = e.touches[0].clientY - (e.touches[0].clientY) // can't track dy without startY, use abs heuristic
+
+    if (!lockAxis.current) {
+      if (Math.abs(dx) > 6) {
+        lockAxis.current = 'h'
+        if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null }
+      } else return
     }
+
     if (dx < 0) {
       didSwipe.current = true
       e.preventDefault()
-      setSwipeX(Math.max(dx, -SWIPE_THRESHOLD))
+      setSwipeX(Math.max(-DELETE_WIDTH, dx))
     } else if (swipeX < 0) {
-      setSwipeX(Math.min(0, swipeX + dx))
+      setSwipeX(Math.min(0, swipeX - (startX.current - e.touches[0].clientX)))
+      setSwipeX(Math.min(0, dx))
     }
   }
 
   function onTouchEnd() {
     dragging.current = false
+    lockAxis.current = null
     if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null }
-    setSwipeX(prev => prev < -SWIPE_THRESHOLD / 2 ? -SWIPE_THRESHOLD : 0)
+    setSwipeX(prev => prev < -DELETE_WIDTH / 2 ? -DELETE_WIDTH : 0)
   }
 
   return (
-    <li className="relative overflow-hidden rounded-xl">
-      {/* delete revealed on swipe */}
-      <div className="absolute inset-y-0 right-0 w-16 bg-red-500 flex items-center justify-center rounded-r-xl">
-        <button onClick={onDelete} className="w-full h-full flex items-center justify-center text-white">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
-
-      <button
-        onClick={() => { if (swipeX < 0) { setSwipeX(0); return } onSelect() }}
+    <li className="overflow-hidden rounded-xl">
+      <div
+        className="flex"
+        style={{ transform: `translateX(${swipeX}px)`, transition: dragging.current ? 'none' : 'transform 0.25s ease' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        style={{ transform: `translateX(${swipeX}px)`, transition: dragging.current ? 'none' : 'transform 0.2s ease' }}
-        className={`relative w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
       >
-        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: list.color }} />
-        <span className="flex-1 text-left truncate">{list.name}</span>
-      </button>
+        {/* List button — min-w-full covers the delete button when not swiped */}
+        <button
+          onClick={() => { if (swipeX < 0) { setSwipeX(0); return } onSelect() }}
+          className={`min-w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
+        >
+          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: list.color }} />
+          <span className="flex-1 text-left truncate">{list.name}</span>
+        </button>
+
+        {/* Delete button — revealed on swipe */}
+        <button
+          onClick={onDelete}
+          style={{ width: DELETE_WIDTH, minWidth: DELETE_WIDTH }}
+          className="flex-shrink-0 bg-red-500 flex flex-col items-center justify-center gap-1 text-white rounded-r-xl"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span className="text-xs font-medium">Verwijder</span>
+        </button>
+      </div>
     </li>
   )
 }
