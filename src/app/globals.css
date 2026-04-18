@@ -12,6 +12,15 @@
   }
 }
 
+@keyframes task-complete {
+  0%   { transform: scale(1);    background-color: transparent; border-color: rgb(209 213 219); }
+  40%  { transform: scale(1.35); background-color: #10b981;     border-color: #10b981; }
+  100% { transform: scale(1);    background-color: #3b82f6;     border-color: #3b82f6; }
+}
+.animate-task-complete {
+  animation: task-complete 0.35s ease forwards;
+}
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;

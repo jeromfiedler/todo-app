@@ -216,34 +216,33 @@ function ListItem({ list, active, onSelect, onEdit, onDelete }: {
   }
 
   return (
-    <li className="overflow-hidden rounded-xl">
-      <div
-        className="flex"
-        style={{ transform: `translateX(${swipeX}px)`, transition: dragging.current ? 'none' : 'transform 0.25s ease' }}
+    <li className="overflow-hidden rounded-xl relative">
+      {/* Delete button — absolutely overlaid on the right, slides in from right edge */}
+      <button
+        onClick={onDelete}
+        style={{
+          width: DELETE_WIDTH,
+          transform: `translateX(${DELETE_WIDTH + swipeX}px)`,
+          transition: dragging.current ? 'none' : 'transform 0.25s ease',
+        }}
+        className="absolute right-0 top-0 bottom-0 bg-red-500 flex items-center justify-center text-white z-10 rounded-r-xl"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </button>
+
+      {/* List button — full width, stays in place */}
+      <button
+        onClick={() => { if (swipeX < 0) { setSwipeX(0); return } onSelect() }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
       >
-        {/* List button — min-w-full covers the delete button when not swiped */}
-        <button
-          onClick={() => { if (swipeX < 0) { setSwipeX(0); return } onSelect() }}
-          className={`min-w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm ${active ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'}`}
-        >
-          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: list.color }} />
-          <span className="flex-1 text-left truncate">{list.name}</span>
-        </button>
-
-        {/* Delete button — revealed on swipe */}
-        <button
-          onClick={onDelete}
-          style={{ width: DELETE_WIDTH, minWidth: DELETE_WIDTH }}
-          className="flex-shrink-0 bg-red-500 flex items-center justify-center text-white rounded-r-xl"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
+        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: list.color }} />
+        <span className="flex-1 text-left truncate">{list.name}</span>
+      </button>
     </li>
   )
 }
