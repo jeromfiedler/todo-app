@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Task, List, Filter } from '@/lib/types'
 import Sidebar from './Sidebar'
 import TaskList from './TaskList'
@@ -39,8 +39,21 @@ export default function Dashboard({ initialTasks, initialLists, user }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const edgeSwipeStartX = useRef<number | null>(null)
 
   const supabase = createClient()
+
+  function handleMainTouchStart(e: React.TouchEvent) {
+    const x = e.touches[0].clientX
+    if (x < 30) edgeSwipeStartX.current = x
+  }
+
+  function handleMainTouchEnd(e: React.TouchEvent) {
+    if (edgeSwipeStartX.current === null) return
+    const x = e.changedTouches[0].clientX
+    if (x - edgeSwipeStartX.current > 60) setSidebarOpen(true)
+    edgeSwipeStartX.current = null
+  }
 
   const activeTasks = useMemo(() =>
     tasks
@@ -151,7 +164,11 @@ export default function Dashboard({ initialTasks, initialLists, user }: Props) {
         />
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main
+        className="flex-1 flex flex-col min-w-0 overflow-hidden"
+        onTouchStart={handleMainTouchStart}
+        onTouchEnd={handleMainTouchEnd}
+      >
         <header className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <button className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setSidebarOpen(true)}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
