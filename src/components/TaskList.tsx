@@ -12,8 +12,12 @@ interface Props {
   onDelete: (id: string) => void
 }
 
-const PRIORITY_COLORS = ['', 'text-green-600', 'text-yellow-600', 'text-red-600']
-const PRIORITY_LABELS = ['', 'Laag', 'Medium', 'Hoog']
+const PRIORITY_PILL = [
+  null,
+  { bg: 'bg-blue-100 dark:bg-blue-900/40', text: 'text-blue-700 dark:text-blue-300', label: 'Laag' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/40', text: 'text-orange-700 dark:text-orange-300', label: 'Medium' },
+  { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-700 dark:text-red-300', label: 'Hoog' },
+]
 
 export default function TaskList({ tasks, completedTasks, activeListId, onToggleComplete, onEdit, onDelete }: Props) {
   const [completedOpen, setCompletedOpen] = useState(false)
@@ -122,7 +126,7 @@ function TaskItem({ task, hideListId, onToggleComplete, onEdit, onDelete }: {
 
       {/* task card, slides left to reveal delete */}
       <div
-        className={`relative flex items-start gap-3 bg-white dark:bg-gray-900 border rounded-xl px-4 py-3 transition-colors ${task.completed ? 'border-gray-100 dark:border-gray-800/50 opacity-60' : 'border-gray-200 dark:border-gray-800'}`}
+        className={`relative flex items-center gap-3 bg-white dark:bg-gray-900 border rounded-xl px-4 py-3 transition-colors ${task.completed ? 'border-gray-100 dark:border-gray-800/50 opacity-60' : 'border-gray-200 dark:border-gray-800'}`}
         style={{ transform: `translateX(${swipeX}px)`, transition: dragging.current ? 'none' : 'transform 0.2s ease' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -130,7 +134,7 @@ function TaskItem({ task, hideListId, onToggleComplete, onEdit, onDelete }: {
       >
         <button
           onClick={() => { if (swipeX < 0) { setSwipeX(0); return } onToggleComplete(task) }}
-          className={`mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${task.completed ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}
+          className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${task.completed ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}
         >
           {task.completed && (
             <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,11 +151,10 @@ function TaskItem({ task, hideListId, onToggleComplete, onEdit, onDelete }: {
             <span className={`text-sm font-medium leading-5 ${task.completed ? 'line-through text-gray-400' : ''}`}>
               {task.title}
             </span>
-            {!task.completed && task.priority > 0 && (
-              <span className={`text-xs font-medium ${PRIORITY_COLORS[task.priority]} flex-shrink-0`}>
-                {'!'.repeat(task.priority)} {PRIORITY_LABELS[task.priority]}
-              </span>
-            )}
+            {!task.completed && task.priority > 0 && (() => {
+              const p = PRIORITY_PILL[task.priority]!
+              return <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${p.bg} ${p.text} flex-shrink-0`}>{p.label}</span>
+            })()}
           </div>
 
           {task.description && (
