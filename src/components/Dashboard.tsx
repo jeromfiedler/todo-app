@@ -38,9 +38,15 @@ export default function Dashboard({ initialTasks, initialLists, user }: Props) {
   const [filter, setFilter] = useState<Filter>(() => {
     try {
       const saved = localStorage.getItem('lastFilter')
-      if (saved) return JSON.parse(saved) as Filter
+      if (saved) {
+        const parsed = JSON.parse(saved) as Filter
+        if (parsed.type === 'list' || parsed.type === 'tag') return parsed
+      }
     } catch {}
-    return { type: 'all' }
+    // Default to first list
+    return initialLists[0]
+      ? { type: 'list', listId: initialLists[0].id }
+      : { type: 'all' }
   })
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
